@@ -1,0 +1,72 @@
+# Synapse для сравнения под той же нагрузкой. Поднимается и
+# настраивается scripts/load-synapse.sh (конфиг рендерится в $LOAD_SYNAPSE_CONF):
+#
+#   scripts/load-synapse.sh up && scripts/load-run.sh synapse S
+#   scripts/load-synapse.sh down        # остановить (данные в томах сохраняются)
+#   scripts/load-synapse.sh reset       # снести вместе с томами
+#
+# Версия образа - как у интероп-стенда (deploy/stand, ADR-0002). Монолит без
+# воркеров, своя PostgreSQL с локалью C и pg_stat_statements. Порты только на
+# loopback и не пересекаются со стендами федерации: 38018 - клиентский API,
+# 39118 - метрики Prometheus, 35432 - PostgreSQL (для pg_stat_* в отчете).
+name: syngo-load-synapse
+
+services:
+  synapse-pg:
+    image: postgres:17-alpine
+    container_name: syngo-load-synapse-pg
+    environment:
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: synapse-bench
+      POSTGRES_DB: synapse_bench
+      # Synapse требует локаль C (иначе allow_unsafe_locale).
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "max_connections=200"]
+    ports:
+      - "127.0.0.1:35432:5432"
+    volumes:
+      - synapse-pg:/var/lib/postgresql/data
+      - ./synapse-initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse_bench"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  synapse:
+    image: matrixdotorg/synapse:v1.165.0
+    container_name: syngo-load-synapse
+    depends_on:
+      synapse-pg:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    volumes:
+      - ${LOAD_SYNAPSE_CONF:?нужен LOAD_SYNAPSE_CONF - каталог с homeserver.yaml}:/data-seed:ro
+      - synapse-data:/data
+      - synapse-media:/media
+    # Конфиг из каталога стенда в volume (как в deploy/stand): signing key и pid
+    # остаются в volume, правки конфига доезжают при каждом старте.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        cp /data-seed/homeserver.yaml /data/homeserver.yaml
+        cp /data-seed/log.config /data/log.config
+        chown -R 991:991 /data /media
+        exec /start.py
+    ports:
+      - "127.0.0.1:38018:8008"
+      - "127.0.0.1:39118:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8008/health')\""]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 15s
+
+volumes:
+  synapse-pg:
+  synapse-data:
+  synapse-media:

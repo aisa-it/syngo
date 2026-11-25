@@ -1,0 +1,32 @@
+# Scrape-конфиг Prometheus для SYNGO.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Алерты: доступность, 5xx, задержки, место, бэкап, очереди (docs/operations.md).
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: syngod
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["syngod-a:8448", "syngod-b:8448"]
+        labels:
+          env: stand
+  # Пример для прода: метрики - на служебном листенере server.ops_addr,
+  # на публичном порту /metrics нет.
+  - job_name: syngod-prod
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["127.0.0.1:9108"]
+        labels:
+          env: prod
+  # node_exporter хоста: место на томах (SyngoHostDiskLow) и метрики бэкапа из
+  # textfile collector (--collector.textfile.directory, BACKUP_METRICS_FILE).
+  - job_name: node
+    static_configs:
+      - targets: ["127.0.0.1:9100"]
+        labels:
+          env: prod

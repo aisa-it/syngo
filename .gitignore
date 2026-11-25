@@ -1,0 +1,38 @@
+# артефакты сборки
+/bin/
+/cover.out
+*.test
+*.out
+
+# локальные конфиги и секреты
+/config.yaml
+.env
+.env.local
+
+# IDE/OS
+.idea/
+.vscode/
+.DS_Store
+
+# Python-кеш тестов ratchet-гейтов
+__pycache__/
+*.pyc
+
+# собранные бинари импортёров (собираются make build / go build -o)
+/syngo-import
+/syngo-import-events
+/syngo-import-media
+
+# отчёты импортёров/экспортёров (пишутся в cwd при запуске)
+/import-report.json
+/export-report.txt
+
+# локальный стенд федерации: секреты и ключи не коммитятся
+/deploy/stand/.env
+/deploy/stand/.stand-state.env
+/deploy/stand/keys/*.key
+
+# нагрузочный стенд и отчеты прогонов: секреты, токены, медиа, логи
+/var/loadstand/
+/var/loadsynapse/
+/var/loadtest/

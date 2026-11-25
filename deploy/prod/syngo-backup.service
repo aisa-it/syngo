@@ -1,0 +1,27 @@
+# Бэкап SYNGO по таймеру: syngo-backup.timer запускает раз в сутки.
+# Настройки - /etc/syngo/backup.env (chmod 600), например:
+#   BACKUP_DIR=/var/backups/syngo
+#   KEEP=7
+#   BACKUP_GPG_RECIPIENT=backup@example.org
+#   BACKUP_UPLOAD_CMD=rsync -a -- "$1" backup@vault.example.org:/srv/syngo/
+#   BACKUP_METRICS_FILE=/var/lib/node_exporter/textfile/syngo_backup.prom
+# Установка без docker: SYNGOD_DATABASE_DSN, MEDIA_DIR=/var/syngo/media и
+# BACKUP_SECRET_FILES="/etc/syngo/env /etc/syngo/config.yaml" в backup.env,
+# ExecStart=/opt/syngo/deploy/backup.sh. Для docker compose - как ниже.
+# Проверка восстановлением (backup-compose.sh verify <бэкап>) - отдельно, на
+# хосте с закрытым ключом gpg: на сервере его быть не должно (docs/operations.md).
+[Unit]
+Description=SYNGO backup (PostgreSQL, media, secrets)
+After=docker.service postgresql.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/syngo/backup.env
+WorkingDirectory=/opt/syngo
+ExecStart=/opt/syngo/deploy/prod/backup-compose.sh backup
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=6h
+UMask=0077

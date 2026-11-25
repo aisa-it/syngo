@@ -1,0 +1,84 @@
+# Overlay для интероп-прогона: третьим сервером поднимается живой Synapse.
+#
+#   deploy/stand/interop/certs.sh
+#   docker compose -f docker-compose.yml -f docker-compose.synapse.yml up -d
+#
+# Версия Synapse закреплена по референсу ADR-0002 (клон 40f63e0 → 1.165.0).
+# Федерация идёт по HTTPS с самоподписанным CA: его получает Synapse,
+# наш сервер доверяет сертификату через federation.insecure_skip_verify
+# (стенд; в prod эта опция запрещена валидацией конфига).
+services:
+  syngod-a:
+    # Фиксированный адрес: Synapse (Twisted) не видит docker-алиасы через свой резолвер,
+    # поэтому прописываем a.test ему в /etc/hosts.
+    networks:
+      stand:
+        ipv4_address: 172.30.0.10
+    environment:
+      SYNGOD_TLS_CERT_FILE: /etc/syngo/certs/a.test.crt
+      SYNGOD_TLS_KEY_FILE: /etc/syngo/certs/a.test.key
+    volumes:
+      - ./config-a-interop.yaml:/etc/syngo/config-a.yaml:ro
+      - ./certs:/etc/syngo/certs:ro
+    extra_hosts:
+      - "synapse.test:172.30.0.1"
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "-qO-", "https://127.0.0.1:8448/health"]
+    # С 17.11.2026 Synapse работает в host-сети: его Twisted-резолвер
+    # игнорирует docker-алиасы и /etc/hosts контейнера, поэтому a.test и synapse.test
+    # резолвятся через /etc/hosts ХОСТА (interop.sh добавляет записи сам).
+    ports:
+      # a.test → 127.0.0.2 (см. interop.sh), Synapse занимает 127.0.0.1:8448
+      - "127.0.0.2:8448:8448"
+
+  synapse:
+    image: matrixdotorg/synapse:v1.165.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    volumes:
+      # Конфиг лежит в git, данные (signing key, pid) — в named volume: bind-mount
+      # каталога ломался на правах (uid 991 не мог создать signing key).
+      - ./synapse:/data-seed:ro
+      - synapse-data:/data
+      - ./certs:/certs:ro
+      - synapse-media:/media
+    # Сид конфига в volume + CA стенда в trust store: Synapse должен принимать TLS a.test.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mkdir -p /data
+        # Конфиг всегда берём из git (volume хранит только signing key и pid):
+        # иначе правки конфига не доезжают до стенда.
+        cp /data-seed/homeserver.yaml /data/homeserver.yaml
+        cp /data-seed/log.config /data/log.config
+        chown -R 991:991 /data
+        cp /certs/ca.crt /usr/local/share/ca-certificates/stand-ca.crt
+        update-ca-certificates
+        exec /start.py
+    # Host-сеть: Twisted-резолвер Synapse использует /etc/hosts хоста,
+    # поэтому публиковать порты и прописывать extra_hosts внутри контейнера не нужно.
+    network_mode: host
+    extra_hosts:
+      - "a.test:127.0.0.2"
+      - "b.test:127.0.0.2"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8008/_matrix/client/versions')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+networks:
+  stand:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  synapse-data:
+  synapse-media:

@@ -1,0 +1,47 @@
+# Сервер B локального стенда федерации (server_name: b.test).
+env: dev
+server:
+  # 8448 — порт федерации по умолчанию: резолвер ходит на <server_name>:8448
+  # и попадает в контейнер напрямую, без well-known и обратного прокси.
+  addr: ":8448"
+matrix:
+  server_name: b.test
+database:
+  dsn: ""              # из SYNGOD_DATABASE_DSN
+  max_conns: 10
+  connect_timeout: 5s
+sync:
+  max_timeout_ms: 30000
+auth:
+  registration_open: true      # стенд: регистрация alice@b.test без UIA
+  min_password_length: 8
+log:
+  level: debug
+  format: text
+media:
+  storage_backend: local
+  directory: var/media
+### federation: стенд по HTTP внутри docker-сети, трафик не выходит наружу.
+federation:
+  enabled: true
+  signing_key_file: /etc/syngo/b.key
+  scheme: http
+  allow_hosts: ["a.test"]
+  deny_hosts: []
+  # Стенд в docker-сети (172.30.0.0/24, адреса 127.0.0.x на хосте): частные
+  # адреса закрыты блок-листом по умолчанию, здесь их открываем.
+  ip_range_whitelist: ["172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"]
+  max_transaction_bytes: 1048576
+  connect_timeout: 3s
+  request_timeout: 15s
+  retry_min: 1s
+  retry_max: 10s
+  incoming_rate_per_second: 50
+  incoming_burst: 200
+rate_limit:
+  login_ip:      { enabled: false }
+  login_account: { enabled: false }
+  register_ip:   { enabled: false }
+  send:          { enabled: false }
+  media_upload:  { enabled: false }
+  sync:          { enabled: false }

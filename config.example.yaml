@@ -1,0 +1,189 @@
+# Пример конфигурации. Порядок применения: defaults -> этот файл -> ENV.
+# Окружение: dev | test | prod. По умолчанию prod: обязательны
+# matrix.server_name (не localhost), database.dsn и sync.token_secret (>= 32 символов),
+# отладочные флаги (federation.insecure_*, push.allow_*) запрещены.
+# Для локальной разработки: env: dev (или SYNGOD_ENV=dev).
+env: prod
+# Секреты (DSN с паролем, token_secret, registration_shared_secret, voip.secret)
+# держите в переменных окружения, не здесь.
+server:
+  addr: ":8008"
+  read_header_timeout: 10s
+  read_timeout: 30s
+  write_timeout: 60s
+  idle_timeout: 120s
+  shutdown_timeout: 15s
+  # Служебный листенер: /metrics, подробные /health и /health/ready,
+  # pprof. Держать во внутренней сети. Пусто - /metrics нет (в dev/test - на addr).
+  # Можно задать SYNGOD_OPS_ADDR.
+  ops_addr: ""
+  # /debug/pprof/ на служебном листенере (требует ops_addr).
+  pprof: false
+  # Доверенные прокси: CIDR или IP. Только от них X-Forwarded-For
+  # (справа налево, пропуская доверенные) и X-Real-IP дают IP клиента для лимитов,
+  # логов и аудита admin. Пусто - заголовки игнорируются, IP - адрес соединения
+  # (за прокси это адрес прокси: лимиты по IP общие на всех). /0 запрещен.
+  # Можно задать SYNGOD_TRUSTED_PROXIES (через запятую).
+  trusted_proxies: []
+  # Внешний адрес сервера (public_baseurl Synapse). Обязателен при auth.oidc_providers:
+  # callback OIDC - <public_baseurl>_synapse/client/oidc/callback (как в Synapse).
+  public_baseurl: ""
+
+matrix:
+  # Имя сервера: только hostname, без схемы и порта. Обязательно, дефолта нет;
+  # вне dev/test localhost запрещен: user_id @user:<server_name> не переименовать.
+  # Можно задать SYNGOD_MATRIX_SERVER_NAME.
+  server_name: ""
+
+database:
+  dsn: ""            # SYNGOD_DATABASE_DSN; обязателен вне dev/test
+  # Предел пула: 2-3 на ядро сервера PostgreSQL, в сумме по клиентам базы
+  # не больше max_connections PostgreSQL (100 по умолчанию). См. docs/operations.md, 6.1.
+  max_conns: 20
+  min_conns: 0
+  connect_timeout: 5s
+  # Период пакетной записи отметок активности (last_validated_at токенов,
+  # last_accessed_at медиа): путь запроса в БД их не пишет.
+  activity_flush_interval: 10s
+
+sync:
+  # Секрет HMAC для токенов /sync (SYNGOD_SYNC_TOKEN_SECRET, `openssl rand -hex 32`).
+  # В dev/test пусто = случайный на старте (WARN), в prod пусто или короче 32 символов -
+  # отказ старта. Никакого дефолтного секрета нет.
+  token_secret: ""
+  max_timeout_ms: 30000
+  per_room_limit: 20
+
+auth:
+  # Открытая регистрация (POST /register, UIA m.login.dummy). По умолчанию закрыта;
+  # SYNGOD_AUTH_REGISTRATION=true открывает.
+  registration_open: false
+  # Регистрация оператором через /_synapse/admin/v1/register (совместимо с
+  # register_new_matrix_user): так создаются пользователи и первый администратор при
+  # закрытой регистрации. Задавайте через SYNGOD_REGISTRATION_SHARED_SECRET (>= 32 символов);
+  # пусто - эндпоинт выключен.
+  registration_shared_secret: ""
+  min_password_length: 8
+  # Выдавать refresh_token, если клиент просит (поле refresh_token: true).
+  refresh_tokens: false
+  # Срок жизни access-токена; 0 — бессрочный.
+  access_token_ttl: 0s
+  refresh_token_ttl: 720h
+  # Не чаще какого интервала обновлять last_validated_at одного токена.
+  last_validated_interval: 5m
+  # Чужой профиль только при общей комнате (Synapse limit_profile_requests_to_users_who_share_rooms).
+  # По умолчанию false, как в Synapse: иначе Element не может пригласить пользователя без общей комнаты.
+  limit_profile_to_shared_rooms: false
+  # password_config.pepper из homeserver.yaml Synapse: без него перенесенные пароли с
+  # pepper не подойдут. Пароль приводится к NFKC, как в Synapse.
+  password_pepper: ""
+  # Проверять локальные хеши паролей (password_config.localdb_enabled); false - только LDAP.
+  password_localdb_enabled: true
+  # Вход через LDAP (ADR-0010): поля как у модуля synapse-ldap3, каталоги опрашиваются
+  # по порядку до первого успеха, затем локальная база. Первый вход создает учетную запись.
+  ldap: []
+  # ldap:
+  #   - name: example.org
+  #     uri: "ldap://ldap.example.org:389"     # строка или список (резервные серверы)
+  #     start_tls: true
+  #     base: "ou=users,dc=example,dc=org"
+  #     attributes: {uid: "uid", mail: "mail", name: "cn"}
+  #     bind_dn: "cn=matrix,ou=services,dc=example,dc=org"   # без bind_dn - режим simple
+  #     bind_password_file: /run/secrets/ldap-example
+  #     filter: "(objectClass=posixAccount)"
+  #     sync_displayname: true             # обновлять имя из cn при каждом входе
+  # Вход через OpenID Connect (ADR-0010): формат oidc_providers Synapse.
+  # idp_id получает префикс oidc- (как в Synapse): oidc-keycloak - это auth_provider в
+  # перенесенной user_external_ids и id кнопки входа в Element.
+  oidc_providers: []
+  # oidc_providers:
+  #   - idp_id: keycloak
+  #     idp_name: "Корпоративный вход"
+  #     issuer: "https://sso.example.org/realms/main"
+  #     client_id: matrix
+  #     # Секрет: SYNGOD_OIDC_CLIENT_SECRET_KEYCLOAK, client_secret_path или client_secret.
+  #     client_secret_path: /run/secrets/oidc-keycloak
+  #     scopes: ["openid", "profile"]
+  #     pkce_method: auto                  # auto | always | never
+  #     user_mapping_provider:
+  #       config:
+  #         subject_claim: sub
+  #         localpart_template: "{{ user.preferred_username }}"
+  #         display_name_template: "{{ user.name }}"
+  # Общие настройки SSO (секция sso Synapse): адреса клиентов, которым loginToken
+  # отдается без страницы подтверждения.
+  sso:
+    client_whitelist: []
+    update_profile_information: false
+
+log:
+  level: info        # debug | info | warn | error
+  format: json       # json | text
+
+# Медиа-репозиторий: байты в локальном каталоге, метаданные в таблице media.
+media:
+  storage_backend: local        # s3 — не реализован (валидация вернёт ошибку)
+  directory: var/media          # можно переопределить SYNGOD_MEDIA_DIRECTORY
+  max_upload_bytes: 52428800    # 50 MiB, как default max_upload_size в Synapse
+  # Асинхронная загрузка (POST /_matrix/media/v1/create): значения Synapse.
+  max_pending_uploads: 5        # незаполненных placeholder на пользователя (max_pending_media_uploads)
+  unused_expiration: 24h        # срок заполнения placeholder (unused_expiration_time)
+  # Неаутентифицированные /_matrix/media/v3/download|thumbnail отдают только медиа,
+  # созданные до legacy_freeze; новые - только /_matrix/client/v1/media с токеном.
+  enable_authenticated_media: true
+  legacy_freeze: "2026-11-20T00:00:00Z"
+
+# Лимиты запросов (модель Synapse: leaky bucket as meter).
+# Ключи: login/register — IP, send/media/sync — пользователь.
+# Выключить конкретный лимит: enabled: false или per_second: 0.
+# Admin-контур /_syngo/admin/v1 (ADR-0008). По умолчанию выключен.
+admin:
+  enabled: false
+  token_ttl: 1h    # срок жизни admin-токена (дефолт в config.Default, ADR-0008)
+
+# Удаленные события: в events сразу лежит вырезанный content, оригинал
+# хранится отдельно retention_period (как redaction_retention_period в Synapse), 0 - не хранится.
+redaction:
+  retention_period: 168h
+
+# TURN для звонков. Пусто = /voip/turnServer отдаёт {} (TURN выключен).
+voip:
+  uris: []            # например ["turn:turn.example.org:3478?transport=udp"]
+  secret: ""          # static-auth-secret coturn (SYNGOD_VOIP_SECRET)
+  ttl: 1h
+
+rate_limit:
+  login_ip:      { enabled: true, per_second: 0.003, burst: 5 }
+  login_account: { enabled: true, per_second: 0.003, burst: 5 }
+  register_ip:   { enabled: true, per_second: 0.17,  burst: 3 }
+  send:          { enabled: true, per_second: 0.2,   burst: 10 }
+  media_upload:  { enabled: true, per_second: 10,    burst: 50 }
+  sync:          { enabled: true, per_second: 2,     burst: 20 }
+
+# Федерация (ADR-0007). Без signing_key_file при enabled: true сервис не стартует.
+federation:
+  enabled: false
+  signing_key_file: ""        # путь к ed25519-ключу (chmod 600), SYNGOD_FEDERATION_SIGNING_KEY
+  valid_until_days: 7
+  # Нотарии для проверки чужих ключей (пусто — запрос к origin), формат Synapse:
+  # ["matrix.org"] или [{server_name: matrix.org, verify_keys: {"ed25519:auto": "<base64>"}}].
+  trusted_key_servers: []
+  # Прежние ключи сервера для old_verify_keys (после смены ключа):
+  # {"ed25519:old": {key: "<base64>", expired_ts: 1700000000000}}
+  old_signing_keys: {}
+  # Транспорт
+  allow_hosts: []             # пусто — разрешены все, кроме deny_hosts (суффикс с точкой работает)
+  deny_hosts: []
+  # Защита от SSRF: IP-диапазоны, закрытые для исходящих запросов
+  # (well-known, ключи, API), как ip_range_blacklist Synapse. Не задан - частные
+  # и служебные диапазоны (127/8, 10/8, 172.16/12, 192.168/16, fc00::/7 и др.);
+  # [] - без запретов.
+  # ip_range_blacklist: ["127.0.0.0/8", "10.0.0.0/8"]
+  ip_range_whitelist: []      # исключения из blacklist (внутренняя федерация)
+  max_transaction_bytes: 1048576   # предел тела входящей транзакции и ответа
+  connect_timeout: 5s
+  request_timeout: 30s
+  retry_min: 5s               # экспоненциальный backoff: 5s → … → retry_max
+  retry_max: 1h
+  incoming_rate_per_second: 10     # rate limit входящих по origin (0 — выключить)
+  incoming_burst: 50

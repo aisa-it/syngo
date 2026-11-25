@@ -1,0 +1,16 @@
+# Allowlist для ratchet.
+# Формат: <полное имя теста> | <причина> | <дата пересмотра YYYY-MM-DD>
+# Пустой allowlist на старте: каждое исключение добавляется только с причиной и датой.
+#
+# Пример (раскомментировать при необходимости):
+# TestServerNotices | нет /sync и /members, тест недостижим до их реализации | 2027-01-31
+
+# Аудит кода: baseline от 18.11 снят, когда /filter отвечал 404 -
+# тест проходил случайно. POST /user/{id}/filter принимает невалидные
+# фильтры с 200, а тест ждет 4xx. Убрать после валидации фильтров по спеке.
+TestFilter | /filter не валидирует тело фильтра (200 вместо 4xx), pass в baseline был на 404 | 2026-12-31
+
+# legacy /_matrix/media/v3/download не отдает медиа, созданные после
+# media.legacy_freeze (MSC3916, как enable_authenticated_media в Synapse). Complement
+# пропускает тест для Synapse; pass в baseline был до freeze по умолчанию.
+TestContent | legacy-download закрыт для новых медиа (MSC3916 freeze), тест пропускается для Synapse | 2027-03-31

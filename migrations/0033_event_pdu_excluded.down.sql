@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS excluded_events;
+ALTER TABLE events DROP COLUMN IF EXISTS pdu_json;

@@ -1,0 +1,47 @@
+name: Complement
+
+# Официальный conformance-набор Matrix (Complement) и ratchet против
+# test/complement/results.jsonl. Тяжелый прогон (сборка образа, 20-40 минут),
+# поэтому только ручной запуск.
+on:
+  workflow_dispatch:
+    inputs:
+      complement_ref:
+        description: "Коммит Complement (пусто - пин из scripts/complement.sh)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  complement:
+    name: complement
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RESULTS_NORMALIZED: ${{ github.workspace }}/complement-results.jsonl
+      RESULTS_LOG: ${{ github.workspace }}/complement-go-test.log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: scripts/complement.sh
+        env:
+          COMPLEMENT_REF_INPUT: ${{ inputs.complement_ref }}
+        run: |
+          if [ -n "$COMPLEMENT_REF_INPUT" ]; then export COMPLEMENT_REF="$COMPLEMENT_REF_INPUT"; fi
+          bash scripts/complement.sh
+      # Нормализованный прогон - вход для `scripts/complement.sh --adopt-results=...`.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: complement
+          path: |
+            complement-results.jsonl
+            complement-go-test.log
+          retention-days: 30

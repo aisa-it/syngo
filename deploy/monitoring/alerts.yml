@@ -1,0 +1,192 @@
+# Алерты SYNGO. Описание метрик и действия по
+# алертам - docs/operations.md, раздел «Алерты».
+#
+# Очередь федерации не входит в readiness: один недоступный пир не
+# должен выводить инстанс из балансировки, поэтому застрявшая доставка - алерт,
+# а не 503.
+#
+# Проверка правил: promtool check rules alerts.yml; тесты - alerts_test.yml
+# (promtool test rules alerts_test.yml).
+groups:
+  - name: syngod-availability
+    rules:
+      - alert: SyngoDown
+        expr: up{job=~"syngod.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "syngod {{ $labels.instance }} не отвечает на /metrics 2 минуты"
+          runbook: "docs/operations.md#syngodown"
+      - alert: SyngoNotReady
+        expr: syngo_ready == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "syngod {{ $labels.instance }} не готов (/health/ready 503) 2 минуты"
+          description: "Проверка: syngo_ready_check == 0 показывает причину (database, schema, instance_lock, draining)."
+          runbook: "docs/operations.md#syngonotready"
+      - alert: SyngoInstanceLockLost
+        expr: syngo_instance_lock_held == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "syngod {{ $labels.instance }} потерял блокировку экземпляра (ADR-0009)"
+          runbook: "docs/operations.md#syngoinstancelocklost"
+      - alert: SyngoRestarting
+        expr: changes(process_start_time_seconds{job=~"syngod.*"}[30m]) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "syngod {{ $labels.instance }} перезапускался больше 3 раз за 30 минут"
+
+  - name: syngod-http
+    rules:
+      - alert: SyngoHigh5xxRate
+        expr: >
+          sum by (instance) (rate(syngo_http_requests_total{code=~"5.."}[5m]))
+          > 0.05 * sum by (instance) (rate(syngo_http_requests_total[5m]))
+          and sum by (instance) (rate(syngo_http_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "syngod {{ $labels.instance }}: больше 5% ответов 5xx за 5 минут"
+          runbook: "docs/operations.md#syngohigh5xxrate"
+      - alert: SyngoSlowRequestsP99
+        # /sync исключен: его длительность включает long-poll (см. SyngoSyncSlowP99),
+        # медиа - тело upload/download зависит от размера файла.
+        expr: >
+          histogram_quantile(0.99, sum by (instance, le) (rate(
+            syngo_http_request_duration_seconds_bucket{route!~".*/sync|.*/media/.*|unmatched"}[5m])))
+          > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "syngod {{ $labels.instance }}: p99 запросов API выше 1 с (10 минут)"
+      - alert: SyngoSyncSlowP99
+        # Обработка /sync без ожидания long-poll; SLO ADR-0005: incremental p99 <= 250 мс.
+        expr: >
+          histogram_quantile(0.99, sum by (instance, le) (rate(syngo_sync_duration_seconds_bucket[5m])))
+          > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "syngod {{ $labels.instance }}: p99 обработки /sync выше 1 с (10 минут)"
+          runbook: "docs/operations.md#syngosyncslowp99"
+
+  - name: syngod-resources
+    rules:
+      - alert: SyngoMediaDiskLow
+        expr: syngo_media_disk_free_bytes / syngo_media_disk_size_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Том медиа {{ $labels.instance }}: свободно меньше 10%"
+          runbook: "docs/operations.md#syngomediadisklow"
+      - alert: SyngoMediaDiskCritical
+        expr: syngo_media_disk_free_bytes / syngo_media_disk_size_bytes < 0.03
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Том медиа {{ $labels.instance }}: свободно меньше 3%, upload скоро начнет падать"
+          runbook: "docs/operations.md#syngomediadisklow"
+      - alert: SyngoHostDiskLow
+        # Том PostgreSQL и каталог бэкапов - через node_exporter (job node); точки
+        # монтирования - под свою установку.
+        expr: >
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay", mountpoint=~"/|/var/lib/docker|/var/backups.*"}
+          / node_filesystem_size_bytes{fstype!~"tmpfs|overlay", mountpoint=~"/|/var/lib/docker|/var/backups.*"}
+          < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} {{ $labels.mountpoint }}: свободно меньше 10% (БД, бэкапы)"
+      - alert: SyngoDBPoolSaturated
+        expr: >
+          syngo_db_pool_connections{state="acquired"} / on (instance) syngo_db_pool_max_connections > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "syngod {{ $labels.instance }}: пул PostgreSQL занят больше чем на 90% (10 минут)"
+          description: "Запросы ждут соединение (syngo_db_pool_empty_acquires_total). Поднять database.max_conns или искать медленные запросы."
+
+  - name: syngod-backup
+    rules:
+      # Метрики пишет deploy/backup.sh в BACKUP_METRICS_FILE (textfile collector
+      # node_exporter). Расписание - сутки, порог - 26 ч с запасом на длительность.
+      - alert: SyngoBackupMissing
+        expr: time() - syngo_backup_last_success_timestamp_seconds > 26 * 3600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Бэкап SYNGO не выполнялся больше 26 часов ({{ $labels.instance }})"
+          runbook: "docs/operations.md#syngobackupmissing"
+      - alert: SyngoBackupNeverRan
+        expr: absent(syngo_backup_last_success_timestamp_seconds)
+        for: 26h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Нет ни одного успешного бэкапа SYNGO (метрика backup.sh отсутствует)"
+          runbook: "docs/operations.md#syngobackupmissing"
+      - alert: SyngoBackupFailed
+        expr: syngo_backup_last_failure_timestamp_seconds > syngo_backup_last_success_timestamp_seconds
+        labels:
+          severity: critical
+        annotations:
+          summary: "Последний запуск бэкапа SYNGO завершился ошибкой ({{ $labels.instance }})"
+          runbook: "docs/operations.md#syngobackupmissing"
+
+  - name: syngod-queues
+    rules:
+      - alert: SyngoFederationOutboxStuck
+        expr: syngo_federation_outbox_oldest_seconds > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Очередь федерации {{ $labels.instance }}: старейший элемент старше 10 минут"
+      - alert: SyngoFederationOutboxUnavailable
+        expr: syngo_federation_outbox_depth < 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Статистика очереди федерации {{ $labels.instance }} недоступна"
+      - alert: SyngoPushDeliveryFailing
+        expr: >
+          rate(syngo_push_notifications_total{result=~"failed|dropped"}[15m])
+          > 0.5 * rate(syngo_push_notifications_total[15m])
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Push {{ $labels.instance }}: больше половины уведомлений не доставлено"
+      - alert: SyngoPushQueueBacklog
+        # Очереди в памяти процесса (ADR-0009): при переполнении уведомления
+        # отбрасываются (syngo_push_notifications_total{result="dropped"}).
+        expr: >
+          syngo_push_queued_notifications > 500
+          or syngo_push_active_queues / syngo_push_max_active_queues > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Push {{ $labels.instance }}: очередь доставки растет 10 минут (шлюз медленный или недоступен)"
+          runbook: "docs/operations.md#syngopushqueuebacklog"
+      - alert: SyngoPushDropped
+        expr: increase(syngo_push_notifications_total{result="dropped"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Push {{ $labels.instance }}: уведомления отброшены (очередь переполнена)"

@@ -1,0 +1,126 @@
+# Локальный стенд федерации SYNGO: два независимых сервера a.test и b.test.
+#
+# Поднятие: make stand-up   (генерирует .env, ключи и сертификаты при первом запуске)
+# Остановка: make stand-down; полный сброс (включая тома и ключи): make stand-reset.
+#
+# Серверы общаются по HTTP внутри docker-сети: federation.scheme: http.
+# Для проверки TLS-ветки см. deploy/stand/tls/README.md (self-signed CA + insecure_skip_verify).
+name: syngo-stand
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: syngo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-syngo}
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syngo -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    # Synapse работает в host-сети (резолвер Twisted не видит docker-алиасы)
+    # и ходит в БД по 127.0.0.1 — публикуем порт только на localhost.
+    ports:
+      - "127.0.0.1:15432:5432"
+    networks:
+      stand:
+
+  syngod-a:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: stand
+    image: syngo/syngod:stand
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SYNGOD_CONFIG: /etc/syngo/config-a.yaml
+      SYNGOD_DATABASE_DSN: postgres://syngo:${POSTGRES_PASSWORD:-syngo}@postgres:5432/syngo_a?sslmode=disable
+      SYNGOD_SYNC_TOKEN_SECRET: ${SYNC_TOKEN_SECRET_A:-stand-a-secret}
+      # относительный var/media в конфиге не сработает: контейнер запускается не из рабочего каталога.
+      SYNGOD_MEDIA_DIRECTORY: /var/syngo/media
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8448/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - ./config-a.yaml:/etc/syngo/config-a.yaml:ro
+      - ./keys/a.key:/etc/syngo/a.key:ro
+      - media-a:/var/syngo/media
+    ports:
+      - "18008:8448"
+    networks:
+      stand:
+        aliases:
+          - a.test
+
+  # Одноразовый контейнер для сверки состояния (syngo-interop): без портов и без
+  # статического IP — иначе `compose run` конфликтует с работающим syngod-a
+  # («Address already in use»).
+  interop:
+    profiles: ["tools"]
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: stand
+    image: syngo/syngod:stand
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Synapse в host-сети: из контейнера он доступен по шлюзу docker-сети.
+    extra_hosts:
+      - "synapse.test:172.30.0.1"
+    environment:
+      # Доверяем стендовому CA (самоподписанные сертификаты Synapse/a.test).
+      SSL_CERT_FILE: /etc/syngo/certs/ca.crt
+    volumes:
+      - ./certs:/etc/syngo/certs:ro
+    networks:
+      stand:
+
+  syngod-b:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: stand
+    image: syngo/syngod:stand
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SYNGOD_CONFIG: /etc/syngo/config-b.yaml
+      SYNGOD_DATABASE_DSN: postgres://syngo:${POSTGRES_PASSWORD:-syngo}@postgres:5432/syngo_b?sslmode=disable
+      SYNGOD_SYNC_TOKEN_SECRET: ${SYNC_TOKEN_SECRET_B:-stand-b-secret}
+      SYNGOD_MEDIA_DIRECTORY: /var/syngo/media
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8448/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - ./config-b.yaml:/etc/syngo/config-b.yaml:ro
+      - ./keys/b.key:/etc/syngo/b.key:ro
+      - media-b:/var/syngo/media
+    ports:
+      - "18009:8448"
+    networks:
+      stand:
+        aliases:
+          - b.test
+
+volumes:
+  pgdata:
+  media-a:
+  media-b:
+
+networks:
+  stand:
+    driver: bridge

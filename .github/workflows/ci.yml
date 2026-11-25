@@ -1,0 +1,186 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOFLAGS: -mod=readonly
+  GOLANGCI_LINT_VERSION: v2.15.0
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+      - name: go build
+        run: go build ./...
+      - name: make build
+        run: make build GOTOOLCHAIN=local
+      - name: docker build (prod)
+        run: docker build --target prod --build-arg VERSION=${GITHUB_SHA::7} --build-arg COMMIT=${GITHUB_SHA::7} -t syngo:ci .
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+      - name: go vet
+        run: go vet ./...
+      # Линтер собирается тем же тулчейном, что и проект: готовые бинари
+      # golangci-lint, собранные старым Go, отказываются анализировать go1.27.
+      - name: golangci-lint
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
+          "$(go env GOPATH)/bin/golangci-lint" run ./...
+
+  gates:
+    name: gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Go нужен только Makefile (go env GOPATH), сами тесты - python.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Самопроверка ratchet-гейтов (coverage, perf, Complement) на ухудшенных данных.
+      - name: make gates-test
+        run: make gates-test GOTOOLCHAIN=local
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: go test -race
+        run: go test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=cover.out ./...
+      - name: coverage
+        run: go tool cover -func=cover.out | tail -1
+      # Общий процент и каждый пакет из test/coverage-baseline.txt не ниже baseline.
+      - name: coverage-ratchet
+        run: python3 tools/ratchet/coverage_ratchet.py check --profile cover.out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cover
+          path: cover.out
+          retention-days: 7
+
+  integration:
+    name: integration (${{ matrix.group }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    # Пакет internal/api - самый долгий: отдельная джоба со своей базой.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: api
+            packages: ./internal/api/
+          - group: store-cmd
+            packages: ./internal/store/ ./internal/importevents/ ./internal/exportdata/ ./cmd/...
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: syngo
+          POSTGRES_PASSWORD: syngo
+          POSTGRES_DB: syngo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U syngo -d syngo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SYNGOD_TEST_DSN: postgres://syngo:syngo@127.0.0.1:5432/syngo_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+      # Живой PostgreSQL: миграции up/down, слой хранения, HTTP-тесты и гейт числа
+      # SQL-запросов /sync (ADR-0005), round-trip Synapse -> syngo -> syngo-export
+      # -> syngo и импорт медиа. -p 1: пакеты делят тестовую базу.
+      - name: go test -tags integration
+        run: go test -tags integration -count=1 -p 1 -timeout 140m ${{ matrix.packages }}
+      - name: Test media backup and restore
+        if: matrix.group == 'store-cmd'
+        run: |
+          docker run --rm --network host -v "$PWD:/src:ro" -w /src \
+            -e PGHOST=127.0.0.1 -e PGUSER=syngo -e PGPASSWORD=syngo \
+            postgres:17-bookworm bash deploy/test-backup-media.sh
+
+  alerts:
+    name: alerts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Синтаксис scrape-конфига и срабатывание правил алертов на примерах.
+      - name: promtool
+        run: |
+          promtool() { docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v3.1.0 "$@"; }
+          promtool check config deploy/monitoring/prometheus.yml
+          promtool test rules deploy/monitoring/alerts_test.yml
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Скрипты эксплуатации: бэкап, восстановление, smoke, приемка миграции.
+      - name: shellcheck
+        run: >-
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable -x
+          deploy/*.sh deploy/prod/*.sh
+          tools/migration-acceptance/run.sh tools/migration-rehearsal/rehearse.sh
+
+  vuln:
+    name: vuln
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.4"
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          "$(go env GOPATH)/bin/govulncheck" ./...

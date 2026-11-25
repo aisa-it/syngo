@@ -1,0 +1,16 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "https://192.0.2.10:18080",
+      "server_name": "a.test"
+    },
+    "m.identity_server": {
+      "base_url": ""
+    }
+  },
+  "brand": "SYNGO",
+  "disable_custom_urls": false,
+  "disable_guests": true,
+  "show_labs_settings": true,
+  "default_theme": "light"
+}

@@ -1,0 +1,125 @@
+# Продовый запуск SYNGO: distroless-образ, миграции до старта,
+# секреты из env, тома для БД и медиа. TLS-терминатор (nginx/traefik) - перед сервисом.
+#
+#   cp deploy/prod/.env.example deploy/prod/.env   # заполнить секреты и server_name
+#   docker compose -f deploy/prod/docker-compose.yml up -d --build --wait
+#   BASE=http://127.0.0.1:8008 deploy/prod/smoke.sh
+#
+# Порядок старта: postgres (healthy) -> migrate (syngo-migrate -up, встроенные миграции)
+# -> syngod. syngod сам сверяет версию схемы и не стартует на чужой или dirty-схеме.
+# Секреты в образ не попадают; .env рядом с compose-файлом не коммитится.
+#
+# Федерация по умолчанию выключена. Включение: смонтировать
+# ключ (chown 65532:65532, chmod 600) и задать SYNGOD_FEDERATION_ENABLED=true,
+# SYNGOD_FEDERATION_SIGNING_KEY=/etc/syngo/signing.key, опубликовать 8448.
+
+x-syngo-image: &syngo-image
+  # Пин версии образа: SYNGO_IMAGE=registry.example.org/syngo/syngod:<tag>. По умолчанию
+  # образ собирается из исходников (стадия prod) с локальным тегом, а не :latest.
+  image: ${SYNGO_IMAGE:-syngo/syngod:local}
+  build:
+    context: ../..
+    target: prod
+    args:
+      VERSION: ${SYNGO_VERSION:-dev}
+      COMMIT: ${SYNGO_COMMIT:-unknown}
+
+x-database-dsn: &database-dsn
+  # Пароль подставляется в URL: используйте URL-безопасный (openssl rand -hex 24).
+  SYNGOD_DATABASE_DSN: postgres://${POSTGRES_USER:-syngo}:${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-syngo}?sslmode=disable
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-syngo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-syngo}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # По TCP: во время initdb сервер слушает только unix-сокет и затем
+      # перезапускается - проверка по сокету давала healthy раньше времени, и
+      # migrate падал на "the database system is starting up".
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+
+  # Одноразовый контейнер миграций: тот же образ, встроенные миграции.
+  migrate:
+    <<: *syngo-image
+    entrypoint: ["/syngo-migrate", "-up"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *database-dsn
+
+  syngod:
+    <<: *syngo-image
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *database-dsn
+      SYNGOD_ENV: prod
+      SYNGOD_CONFIG: /etc/syngo/config.yaml
+      SYNGOD_MATRIX_SERVER_NAME: ${SYNGOD_SERVER_NAME:?задайте SYNGOD_SERVER_NAME (публичный домен, не localhost)}
+      SYNGOD_SYNC_TOKEN_SECRET: ${SYNGOD_SYNC_TOKEN_SECRET:?задайте SYNGOD_SYNC_TOKEN_SECRET (openssl rand -hex 32)}
+      # Пусто - регистрация оператором выключена; задайте, чтобы создавать пользователей
+      # при закрытой регистрации (register_new_matrix_user или smoke.sh).
+      SYNGOD_REGISTRATION_SHARED_SECRET: ${SYNGOD_REGISTRATION_SHARED_SECRET:-}
+      SYNGOD_AUTH_REGISTRATION: ${SYNGOD_AUTH_REGISTRATION:-false}
+      SYNGOD_MEDIA_DIRECTORY: /var/syngo/media
+      SYNGOD_LOG_FORMAT: json
+      # Доверенные прокси: только от них X-Forwarded-For/X-Real-IP дают IP
+      # клиента для лимитов, логов и аудита. Без настройки все клиенты за прокси -
+      # один IP и одно ведро лимитов. Прокси на хосте ходит в 127.0.0.1:8008, и
+      # syngod видит адрес шлюза сети compose: SYNGOD_TRUSTED_PROXIES=172.18.0.1
+      # (docker network inspect <проект>_default -f '{{(index .IPAM.Config 0).Gateway}}').
+      # Прокси - контейнер в той же сети: его адрес или подсеть.
+      SYNGOD_TRUSTED_PROXIES: ${SYNGOD_TRUSTED_PROXIES:-}
+    volumes:
+      - ./config.yaml:/etc/syngo/config.yaml:ro
+      # Том создается из каталога образа: владелец nonroot (65532), upload работает.
+      - media:/var/syngo/media
+    ports:
+      # Только loopback: наружу сервис публикует TLS-прокси. SYNGOD_BIND=0.0.0.0 - осознанно.
+      - "${SYNGOD_BIND:-127.0.0.1}:${SYNGOD_PORT:-8008}:8008"
+      # Служебный листенер (метрики): только loopback, не через прокси.
+      - "127.0.0.1:${SYNGOD_OPS_PORT:-9108}:9108"
+    healthcheck:
+      # В distroless нет shell/curl: проверку делает сам бинарь по /health/ready.
+      test: ["CMD", "/syngod", "-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+        reservations:
+          cpus: "0.5"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  pgdata:
+  media:

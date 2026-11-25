@@ -1,0 +1,13 @@
+.git
+.gitignore
+bin/
+.cache/
+cover.out
+*.md
+!README.md
+.env*
+config.yaml
+docs/
+tools/
+# entrypoint нужен образу для Complement
+!tools/complement/entrypoint.sh

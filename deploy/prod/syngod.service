@@ -1,0 +1,31 @@
+# systemd-юнит для запуска syngod без docker.
+# Секреты — в /etc/syngo/env (chmod 600), конфиг — /etc/syngo/config.yaml (env: prod).
+[Unit]
+Description=SYNGO Matrix homeserver
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=syngo
+Group=syngo
+WorkingDirectory=/var/lib/syngo
+EnvironmentFile=/etc/syngo/env
+ExecStart=/usr/local/bin/syngod -config /etc/syngo/config.yaml
+# SIGTERM: сервер дренирует очереди и завершает long-poll /sync.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+# Изоляция.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/syngo /var/syngo
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

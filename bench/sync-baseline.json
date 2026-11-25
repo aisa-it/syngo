@@ -1,0 +1,79 @@
+{
+  "generated": "2026-11-21T00:35:48Z",
+  "hardware": {
+    "cpu_model": "Intel(R) Xeon(R) CPU E5-2620 v4 @ 2.10GHz",
+    "cpus": 8,
+    "mem_total_kb": 65853576,
+    "load1": 2.35,
+    "go": "go1.27.0",
+    "postgres": "PostgreSQL 17.12"
+  },
+  "profile": {
+    "clients": 10,
+    "events_per_room": 10,
+    "foreign_senders": false,
+    "iterations": 30,
+    "lazy_members": false,
+    "members_per_room": 5,
+    "per_room_limit": 20,
+    "rooms": 500,
+    "users": 10
+  },
+  "rss_kb": 40424,
+  "scenarios": {
+    "delta": {
+      "p50_ms": 32.125,
+      "p95_ms": 46.809,
+      "p99_ms": 51.604,
+      "rps": 284.20852243628946,
+      "sql_per_sync": 3,
+      "samples": 300,
+      "errors": 0
+    },
+    "empty": {
+      "p50_ms": 21.95,
+      "p95_ms": 36.066,
+      "p99_ms": 44.833,
+      "rps": 416.1690233088446,
+      "sql_per_sync": 2,
+      "samples": 300,
+      "errors": 0
+    },
+    "http-delta": {
+      "p50_ms": 65.71,
+      "p95_ms": 118.083,
+      "p99_ms": 237.326,
+      "rps": 132.70634310561746,
+      "sql_per_sync": 13.023333333333333,
+      "samples": 300,
+      "errors": 0
+    },
+    "http-empty": {
+      "p50_ms": 39.916,
+      "p95_ms": 67.867,
+      "p99_ms": 88.519,
+      "rps": 219.95906970836597,
+      "sql_per_sync": 8,
+      "samples": 300,
+      "errors": 0
+    },
+    "http-initial": {
+      "p50_ms": 536.367,
+      "p95_ms": 917.36,
+      "p99_ms": 1947.155,
+      "rps": 15.841408719676485,
+      "sql_per_sync": 13,
+      "samples": 300,
+      "errors": 0
+    },
+    "initial": {
+      "p50_ms": 300.663,
+      "p95_ms": 444.202,
+      "p99_ms": 669.282,
+      "rps": 31.546982567654066,
+      "sql_per_sync": 3,
+      "samples": 300,
+      "errors": 0
+    }
+  }
+}

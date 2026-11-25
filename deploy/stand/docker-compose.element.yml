@@ -1,0 +1,29 @@
+# Element Web для живого контура. HTTPS обязателен: без secure context
+# браузер не даёт crypto.randomUUID и Element не стартует.
+#   deploy/stand/element/gen-cert.sh 192.0.2.10
+#   docker compose -f docker-compose.yml -f docker-compose.element.yml up -d element
+services:
+  element:
+    image: vectorim/element-web:latest
+    restart: unless-stopped
+    # Штатный entrypoint переписывает /etc/nginx/conf.d/default.conf и падает на
+    # нашей read-only конфигурации — запускаем nginx напрямую.
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    environment:
+      ELEMENT_WEB_PORT: "443"
+    # Штатный healthcheck ходит по http на $ELEMENT_WEB_PORT, а nginx слушает https —
+    # контейнер вечно unhealthy. Проверяем https и игнорируем самоподписанный сертификат.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --no-check-certificate --spider https://127.0.0.1/config.json || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ./element/config.json:/app/config.json:ro
+      - ./element/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./element/tls:/etc/nginx/tls:ro
+    ports:
+      - "18080:443"
+    networks:
+      - stand

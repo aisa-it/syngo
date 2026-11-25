@@ -1,0 +1,14 @@
+# Расписание бэкапа SYNGO: ежесуточно в 03:30 с разбросом 30 минут.
+# Порог алерта SyngoBackupMissing - 26 ч (deploy/monitoring/alerts.yml).
+#   cp deploy/prod/syngo-backup.{service,timer} /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now syngo-backup.timer
+[Unit]
+Description=Daily SYNGO backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

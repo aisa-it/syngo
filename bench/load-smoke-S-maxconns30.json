@@ -1,0 +1,703 @@
+{
+  "tool": "loadgen",
+  "format": 1,
+  "run_id": "72deecfd",
+  "generated": "2026-11-21T18:04:49Z",
+  "loadgen_commit": "-",
+  "target": {
+    "base_url": "http://127.0.0.1:38008",
+    "kind": "syngo",
+    "versions": [
+      "v1.1",
+      "v1.2",
+      "v1.3",
+      "v1.4",
+      "v1.5",
+      "v1.6",
+      "v1.7",
+      "v1.8",
+      "v1.9",
+      "v1.10",
+      "v1.11"
+    ],
+    "build": "- - go1.27.4"
+  },
+  "hardware": {
+    "cpu_model": "Intel(R) Xeon(R) CPU E5-2620 v4 @ 2.10GHz",
+    "cpus": 8,
+    "mem_total_kb": 65853576,
+    "load1": 11.07,
+    "go": "go1.27.4",
+    "postgres": "PostgreSQL 17.12"
+  },
+  "profile": {
+    "name": "S",
+    "users": 50,
+    "rooms": 20,
+    "rooms_per_user": 5,
+    "room_skew": 1,
+    "encrypted_rooms_percent": 30,
+    "mode": "users",
+    "think_time": "5s",
+    "target_rps": 10,
+    "max_inflight": 256,
+    "ramp": "15s",
+    "warmup": "20s",
+    "duration": "1m0s",
+    "drain": "10s",
+    "sync_timeout": "30s",
+    "timeline_limit": 20,
+    "lazy_load_members": true,
+    "message_bytes": 120,
+    "media_kb": 64,
+    "weights": {
+      "create_room": 1,
+      "invite": 3,
+      "join_leave": 3,
+      "keys_query": 6,
+      "keys_upload": 2,
+      "media_download": 6,
+      "media_upload": 3,
+      "messages": 6,
+      "receipt": 15,
+      "send": 40,
+      "typing": 15
+    },
+    "setup_concurrency": 8,
+    "seed": 166
+  },
+  "config": {
+    "db_max_conns": "30",
+    "log_level": "info",
+    "rate_limit": "prod",
+    "server_commit": "-",
+    "server_name": "bench.loadtest"
+  },
+  "setup": {
+    "users": 50,
+    "registered": 0,
+    "logged_in": 0,
+    "cached": 50,
+    "rooms_created": 0,
+    "rooms_reused": 20,
+    "joins": 250,
+    "memberships": 250,
+    "seconds": 2.533,
+    "largest_room": 40,
+    "smallest_room": 2,
+    "encrypted_rooms": 7
+  },
+  "setup_endpoints": {
+    "directory": {
+      "count": 20,
+      "p50_ms": 3.62,
+      "p95_ms": 9.888,
+      "p99_ms": 10.087,
+      "max_ms": 10.128,
+      "mean_ms": 5.251,
+      "rps": 0,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 20
+      }
+    },
+    "filter": {
+      "count": 50,
+      "p50_ms": 49.075,
+      "p95_ms": 118.976,
+      "p99_ms": 120.166,
+      "max_ms": 120.586,
+      "mean_ms": 58.937,
+      "rps": 0,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 50
+      }
+    },
+    "join": {
+      "count": 250,
+      "p50_ms": 13.869,
+      "p95_ms": 91.855,
+      "p99_ms": 261.124,
+      "max_ms": 345.273,
+      "mean_ms": 24.946,
+      "rps": 0,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 250
+      }
+    },
+    "keys_upload": {
+      "count": 50,
+      "p50_ms": 61.084,
+      "p95_ms": 127.558,
+      "p99_ms": 161.833,
+      "max_ms": 161.833,
+      "mean_ms": 70.739,
+      "rps": 0,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 50
+      }
+    },
+    "media_upload": {
+      "count": 5,
+      "p50_ms": 41.852,
+      "p95_ms": 99.466,
+      "p99_ms": 99.466,
+      "max_ms": 99.935,
+      "mean_ms": 49.752,
+      "rps": 0,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 5
+      }
+    },
+    "whoami": {
+      "count": 50,
+      "p50_ms": 41.437,
+      "p95_ms": 127.558,
+      "p99_ms": 159.868,
+      "max_ms": 159.868,
+      "mean_ms": 52.348,
+      "rps": 0,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 50
+      }
+    }
+  },
+  "summary": {
+    "requests": 6593,
+    "rps": 109.73,
+    "errors": 0,
+    "rate_limited": 0,
+    "error_rate": 0,
+    "window_seconds": 60.084,
+    "actions": 531,
+    "actions_rps": 8.838,
+    "expected_actions_rps": 10,
+    "active_users": 50,
+    "rooms": 29,
+    "memberships": 302
+  },
+  "delivery": {
+    "from_ack": {
+      "count": 3813,
+      "p50_ms": 224.919,
+      "p95_ms": 652.25,
+      "p99_ms": 879.134,
+      "max_ms": 1455.196,
+      "mean_ms": 259.637
+    },
+    "from_send_start": {
+      "count": 3813,
+      "p50_ms": 474.384,
+      "p95_ms": 1504.559,
+      "p99_ms": 2307.96,
+      "max_ms": 2627.894,
+      "mean_ms": 589.318
+    },
+    "messages": 194,
+    "expected": 3813,
+    "delivered": 3813,
+    "completeness": 1,
+    "before_ack": 0,
+    "undelivered_messages": 0
+  },
+  "endpoints": {
+    "create_room": {
+      "count": 4,
+      "p50_ms": 455.873,
+      "p95_ms": 1322,
+      "p99_ms": 1322,
+      "max_ms": 1324.9,
+      "mean_ms": 789.164,
+      "rps": 0.067,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 4
+      }
+    },
+    "invite": {
+      "count": 9,
+      "p50_ms": 148.091,
+      "p95_ms": 315.381,
+      "p99_ms": 315.381,
+      "max_ms": 315.381,
+      "mean_ms": 170.109,
+      "rps": 0.15,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 9
+      }
+    },
+    "join": {
+      "count": 4,
+      "p50_ms": 186.175,
+      "p95_ms": 289.879,
+      "p99_ms": 289.879,
+      "max_ms": 289.879,
+      "mean_ms": 195.805,
+      "rps": 0.067,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 4
+      }
+    },
+    "join_invite": {
+      "count": 19,
+      "p50_ms": 238.756,
+      "p95_ms": 1961.917,
+      "p99_ms": 1961.917,
+      "max_ms": 1961.917,
+      "mean_ms": 380.816,
+      "rps": 0.316,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 19
+      }
+    },
+    "keys_query": {
+      "count": 34,
+      "p50_ms": 18.143,
+      "p95_ms": 303.157,
+      "p99_ms": 419.622,
+      "max_ms": 419.622,
+      "mean_ms": 53.396,
+      "rps": 0.566,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 34
+      }
+    },
+    "keys_upload": {
+      "count": 15,
+      "p50_ms": 50.061,
+      "p95_ms": 842.244,
+      "p99_ms": 842.244,
+      "max_ms": 842.244,
+      "mean_ms": 125.555,
+      "rps": 0.25,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 15
+      }
+    },
+    "leave": {
+      "count": 7,
+      "p50_ms": 341.605,
+      "p95_ms": 1657.689,
+      "p99_ms": 1657.689,
+      "max_ms": 1657.689,
+      "mean_ms": 561.021,
+      "rps": 0.117,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 7
+      }
+    },
+    "media_download": {
+      "count": 36,
+      "p50_ms": 64.842,
+      "p95_ms": 396.593,
+      "p99_ms": 539.893,
+      "max_ms": 541.251,
+      "mean_ms": 105.807,
+      "rps": 0.599,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 36
+      }
+    },
+    "media_upload": {
+      "count": 14,
+      "p50_ms": 78.336,
+      "p95_ms": 1530.869,
+      "p99_ms": 1530.869,
+      "max_ms": 1530.869,
+      "mean_ms": 246.151,
+      "rps": 0.233,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 14
+      }
+    },
+    "messages": {
+      "count": 35,
+      "p50_ms": 24.212,
+      "p95_ms": 218.304,
+      "p99_ms": 266.373,
+      "max_ms": 267.241,
+      "mean_ms": 49.121,
+      "rps": 0.583,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 35
+      }
+    },
+    "receipt": {
+      "count": 80,
+      "p50_ms": 120.166,
+      "p95_ms": 795.868,
+      "p99_ms": 1580.36,
+      "max_ms": 1580.36,
+      "mean_ms": 227.985,
+      "rps": 1.331,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 80
+      }
+    },
+    "send_encrypted": {
+      "count": 95,
+      "p50_ms": 229.44,
+      "p95_ms": 1196.789,
+      "p99_ms": 2079.009,
+      "max_ms": 2079.009,
+      "mean_ms": 372.236,
+      "rps": 1.581,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 95
+      }
+    },
+    "send_text": {
+      "count": 101,
+      "p50_ms": 207.709,
+      "p95_ms": 870.43,
+      "p99_ms": 1257.837,
+      "max_ms": 1258.575,
+      "mean_ms": 300.794,
+      "rps": 1.681,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 101
+      }
+    },
+    "sync_longpoll": {
+      "count": 6047,
+      "p50_ms": 493.646,
+      "p95_ms": 990.63,
+      "p99_ms": 1712.328,
+      "max_ms": 2607.461,
+      "mean_ms": 497.391,
+      "rps": 100.642,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 6047
+      }
+    },
+    "typing": {
+      "count": 93,
+      "p50_ms": 4.55,
+      "p95_ms": 261.124,
+      "p99_ms": 747.54,
+      "max_ms": 747.54,
+      "mean_ms": 40.371,
+      "rps": 1.548,
+      "errors": 0,
+      "rate_limited": 0,
+      "statuses": {
+        "200": 93
+      }
+    }
+  },
+  "counters": {
+    "action_create_room": 4,
+    "action_invite": 14,
+    "action_join_leave": 11,
+    "action_keys_query": 34,
+    "action_keys_upload": 15,
+    "action_media_download": 36,
+    "action_media_upload": 14,
+    "action_messages": 35,
+    "action_receipt": 81,
+    "action_send": 194,
+    "action_typing": 93,
+    "actions": 531,
+    "sync_limited_timelines": 13
+  },
+  "server": {
+    "metrics_url": "http://127.0.0.1:39108/metrics",
+    "build": "- - go1.27.4",
+    "kind": "syngo",
+    "requests": {
+      "GET /_matrix/client/v1/media/download/{serverName}/{mediaId}": 36,
+      "GET /_matrix/client/v3/rooms/{roomId}/messages": 35,
+      "GET /_matrix/client/v3/sync": 6047,
+      "POST /_matrix/client/v3/createRoom": 4,
+      "POST /_matrix/client/v3/join/{roomIdOrAlias}": 4,
+      "POST /_matrix/client/v3/keys/query": 34,
+      "POST /_matrix/client/v3/keys/upload": 15,
+      "POST /_matrix/client/v3/rooms/{roomId}/invite": 9,
+      "POST /_matrix/client/v3/rooms/{roomId}/join": 19,
+      "POST /_matrix/client/v3/rooms/{roomId}/leave": 7,
+      "POST /_matrix/client/v3/rooms/{roomId}/receipt/{receiptType}/{eventId}": 80,
+      "POST /_matrix/media/v3/upload": 14,
+      "PUT /_matrix/client/v3/rooms/{roomId}/send/{eventType}/{txnId}": 196,
+      "PUT /_matrix/client/v3/rooms/{roomId}/typing/{userId}": 93
+    },
+    "status": {
+      "200": 6593
+    },
+    "route_p95_ms": {
+      "GET /_matrix/client/v1/media/download/{serverName}/{mediaId}": 450,
+      "GET /_matrix/client/v3/rooms/{roomId}/messages": 221.875,
+      "GET /_matrix/client/v3/sync": 994.441,
+      "POST /_matrix/client/v3/createRoom": 2350,
+      "POST /_matrix/client/v3/join/{roomIdOrAlias}": 450,
+      "POST /_matrix/client/v3/keys/query": 358.333,
+      "POST /_matrix/client/v3/keys/upload": 625,
+      "POST /_matrix/client/v3/rooms/{roomId}/invite": 387.5,
+      "POST /_matrix/client/v3/rooms/{roomId}/join": 1075,
+      "POST /_matrix/client/v3/rooms/{roomId}/leave": 2237.5,
+      "POST /_matrix/client/v3/rooms/{roomId}/receipt/{receiptType}/{eventId}": 916.667,
+      "POST /_matrix/media/v3/upload": 1450,
+      "PUT /_matrix/client/v3/rooms/{roomId}/send/{eventType}/{txnId}": 1275,
+      "PUT /_matrix/client/v3/rooms/{roomId}/typing/{userId}": 293.75
+    },
+    "route_p99_ms": {
+      "GET /_matrix/client/v1/media/download/{serverName}/{mediaId}": 820,
+      "GET /_matrix/client/v3/rooms/{roomId}/messages": 412.5,
+      "GET /_matrix/client/v3/sync": 2253.081,
+      "POST /_matrix/client/v3/createRoom": 2470,
+      "POST /_matrix/client/v3/join/{roomIdOrAlias}": 490,
+      "POST /_matrix/client/v3/keys/query": 471.667,
+      "POST /_matrix/client/v3/keys/upload": 925,
+      "POST /_matrix/client/v3/rooms/{roomId}/invite": 477.5,
+      "POST /_matrix/client/v3/rooms/{roomId}/join": 2215,
+      "POST /_matrix/client/v3/rooms/{roomId}/leave": 2447.5,
+      "POST /_matrix/client/v3/rooms/{roomId}/receipt/{receiptType}/{eventId}": 2100,
+      "POST /_matrix/media/v3/upload": 2290,
+      "PUT /_matrix/client/v3/rooms/{roomId}/send/{eventType}/{txnId}": 2255,
+      "PUT /_matrix/client/v3/rooms/{roomId}/typing/{userId}": 845
+    },
+    "sync_p50_ms": 44.39,
+    "sync_p95_ms": 528.249,
+    "sync_p99_ms": 964.856,
+    "db_pool_empty_acquires": 11799,
+    "db_pool_wait_seconds": 50.2,
+    "db_pool_max": 30,
+    "gc_cycles": 65,
+    "gc_pause_seconds": 0.069,
+    "heap_end_bytes": 13967304,
+    "longpoll_waiters_max": 32,
+    "goroutines_max": 130
+  },
+  "process": {
+    "pid": 1050648,
+    "rss_start_kb": 45936,
+    "rss_end_kb": 48176,
+    "rss_max_kb": 49884,
+    "cpu_seconds": 31.04,
+    "cpu_avg_pct": 51.688,
+    "cpu_max_pct": 60.788,
+    "threads_max": 16
+  },
+  "postgres": {
+    "version": "PostgreSQL 17.12 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "db_size_start_mb": 16.865,
+    "db_size_end_mb": 19.013,
+    "counters": {
+      "blks_hit": 1199487,
+      "blks_read": 0,
+      "deadlocks": 0,
+      "temp_bytes": 0,
+      "temp_files": 0,
+      "tup_deleted": 3692,
+      "tup_fetched": 605030,
+      "tup_inserted": 5411,
+      "tup_returned": 2947473,
+      "tup_updated": 677,
+      "xact_commit": 81038,
+      "xact_rollback": 1
+    },
+    "tps": 1349.46,
+    "cache_hit_ratio": 1,
+    "conns_max": 31,
+    "active_max": 21,
+    "statements_error": "ERROR: relation \"pg_stat_statements\" does not exist (SQLSTATE 42P01)"
+  },
+  "checks": [
+    {
+      "name": "error_rate (без 429)",
+      "kind": "gate",
+      "value": 0,
+      "limit": 0.01,
+      "op": "\u003c=",
+      "ok": true
+    },
+    {
+      "name": "delivery.completeness",
+      "kind": "gate",
+      "value": 1,
+      "limit": 0.99,
+      "op": "\u003e=",
+      "ok": true
+    },
+    {
+      "name": "delivery.messages",
+      "kind": "gate",
+      "value": 194,
+      "limit": 1,
+      "op": "\u003e=",
+      "ok": true
+    },
+    {
+      "name": "delivery.from_ack.p95_ms",
+      "kind": "slo",
+      "value": 652.25,
+      "limit": 1000,
+      "op": "\u003c=",
+      "ok": true
+    },
+    {
+      "name": "delivery.from_ack.p99_ms",
+      "kind": "slo",
+      "value": 879.134,
+      "limit": 2000,
+      "op": "\u003c=",
+      "ok": true
+    },
+    {
+      "name": "send.p95_ms",
+      "kind": "slo",
+      "value": 870.43,
+      "limit": 500,
+      "op": "\u003c=",
+      "ok": false
+    }
+  ],
+  "samples": [
+    {
+      "t": 20.084,
+      "rss_kb": 45944,
+      "threads": 15,
+      "goroutines": 122,
+      "pg_conns": 31,
+      "pg_active": 8
+    },
+    {
+      "t": 25.085,
+      "rss_kb": 46376,
+      "cpu_pct": 60.788,
+      "threads": 15,
+      "goroutines": 121,
+      "pg_conns": 31,
+      "pg_active": 6
+    },
+    {
+      "t": 30.085,
+      "rss_kb": 45500,
+      "cpu_pct": 55.2,
+      "threads": 15,
+      "goroutines": 121,
+      "pg_conns": 31,
+      "pg_active": 8
+    },
+    {
+      "t": 35.085,
+      "rss_kb": 46220,
+      "cpu_pct": 52,
+      "threads": 15,
+      "longpoll_waiters": 32,
+      "goroutines": 122,
+      "pg_conns": 31,
+      "pg_active": 2
+    },
+    {
+      "t": 40.086,
+      "rss_kb": 49884,
+      "cpu_pct": 45.191,
+      "threads": 15,
+      "goroutines": 124,
+      "pg_conns": 31,
+      "pg_active": 1
+    },
+    {
+      "t": 45.085,
+      "rss_kb": 47792,
+      "cpu_pct": 51.41,
+      "threads": 16,
+      "goroutines": 124,
+      "pg_conns": 31,
+      "pg_active": 4
+    },
+    {
+      "t": 50.085,
+      "rss_kb": 48268,
+      "cpu_pct": 50.4,
+      "threads": 16,
+      "goroutines": 124,
+      "pg_conns": 31,
+      "pg_active": 4
+    },
+    {
+      "t": 55.085,
+      "rss_kb": 47852,
+      "cpu_pct": 53.4,
+      "threads": 16,
+      "goroutines": 123,
+      "pg_conns": 31,
+      "pg_active": 2
+    },
+    {
+      "t": 60.085,
+      "rss_kb": 47364,
+      "cpu_pct": 40.2,
+      "threads": 16,
+      "goroutines": 130,
+      "pg_conns": 31,
+      "pg_active": 21
+    },
+    {
+      "t": 65.085,
+      "rss_kb": 48604,
+      "cpu_pct": 55.8,
+      "threads": 16,
+      "longpoll_waiters": 7,
+      "goroutines": 124,
+      "pg_conns": 31,
+      "pg_active": 3
+    },
+    {
+      "t": 70.085,
+      "rss_kb": 48212,
+      "cpu_pct": 53.8,
+      "threads": 16,
+      "goroutines": 125,
+      "pg_conns": 31,
+      "pg_active": 2
+    },
+    {
+      "t": 75.085,
+      "rss_kb": 47892,
+      "cpu_pct": 50.2,
+      "threads": 16,
+      "goroutines": 127,
+      "pg_conns": 31,
+      "pg_active": 6
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+SYNGO
+Copyright (C) 2026 SYNGO contributors
+
+SYNGO is free software licensed under the GNU Affero General Public License,
+version 3 or (at your option) any later version (AGPL-3.0-or-later).
+See the LICENSE file for the full license text.
+
+Corresponding source is available from:
+https://github.com/aisa-it/syngo
+
+Release and deployment builds identify their source revision in the public
+GET /_syngo/v1/source response (also available when federation is disabled).
+Operators distributing or deploying modified versions must keep the corresponding
+source available to their users.
+
+SYNGO DERIVATIONS FROM SYNAPSE
+==============================
+
+Portions of SYNGO are derived from Synapse:
+https://github.com/element-hq/synapse
+
+The upstream Synapse project carries the following copyright notices:
+  Copyright 2014-2017 OpenMarket Ltd
+  Copyright 2017 Vector Creations Ltd
+  Copyright 2017-2025 New Vector Ltd
+  Copyright 2025 Element Creations Ltd
+
+Confirmed derived portions use upstream commit:
+  40f63e0fb1813161c04a0e2c930ec611466e81f7 (2026-11-16)
+
+  SYNGO file                                  Upstream source
+  ------------------------------------------  -----------------------------
+  internal/state/state.go                     synapse/state/v2.py
+  internal/state/synapse_diff_test.go         tests/state/test_v2.py
+  internal/state/synapse_units_test.go        tests/state/test_v2.py
+
+The cited upstream files carry this notice:
+  Copyright (C) 2023 New Vector, Ltd
+  Licensed under the GNU Affero General Public License, version 3 or
+  (at your option) any later version.
+
+The upstream files were originally licensed under the Apache License,
+Version 2.0, and include modifications made by New Vector Limited. The
+current derived portions, including subsequent upstream modifications,
+are distributed under AGPL-3.0-or-later, not solely under Apache-2.0.
+
+The Go ports and modifications by SYNGO contributors are dated 2026-11-27.
+Source-file headers identify the corresponding upstream files. Preserve these
+notices when copying or modifying those files, and update this NOTICE when
+adding further derived material.
+
+Matrix, Synapse, Element, and related names and trademarks belong to their
+respective owners. No endorsement by the upstream copyright holders is implied.

@@ -1,0 +1,104 @@
+# Конфигурация живого Synapse для интероп-прогона (версия образа — 1.165.0).
+# Федерация по HTTPS: Synapse доверяет самоподписанному CA стенда (см. overlay),
+# наш сервер — через federation.insecure_skip_verify.
+server_name: synapse.test
+public_baseurl: https://synapse.test:8448/
+pid_file: /data/homeserver.pid
+
+# TLS-listener требует явных путей к сертификату и ключу:
+# файлы генерирует deploy/stand/interop/certs.sh и они смонтированы в /certs.
+tls_certificate_path: /certs/synapse.test.crt
+tls_private_key_path: /certs/synapse.test.key
+
+listeners:
+  # 8448 — федерация и клиентский API по TLS.
+  - port: 8448
+    tls: true
+    type: http
+    # host-сеть: loopback (хосты) + шлюз docker-сети stand —
+    # так контейнер A достаёт Synapse по synapse.test:8448, а 127.0.0.2:8448 занят syngod-a.
+    bind_addresses: ["127.0.0.1", "172.30.0.1"]
+    resources:
+      - names: [client, federation]
+        compress: false
+  # 8008 — без TLS, только для healthcheck контейнера.
+  - port: 8008
+    tls: false
+    type: http
+    bind_addresses: ["127.0.0.1"]
+    resources:
+      - names: [client]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: syngo
+    password: stand-postgres
+    database: syngo_synapse
+    # Synapse в host-сети: БД доступна через опубликованный порт postgres.
+    host: 127.0.0.1
+    port: 15432
+  # Кластер стенда создан с локалью по умолчанию (не 'C'), Synapse это запрещает.
+  # Для тестового контура безопасно: данные синтетические. В проде — initdb с 'C'.
+  allow_unsafe_locale: true
+
+media_store_path: /media
+signing_key_path: /data/synapse.signing.key
+trusted_key_servers: []
+suppress_key_server_warning: true
+federation_domain_whitelist: ["a.test", "b.test", "synapse.test"]
+
+# Регистрация пользователей через shared secret (нужен для сценариев интеропа).
+registration_shared_secret: stand-registration-secret
+enable_registration: false
+allow_guest_access: false
+
+# Никаких внешних вызовов: стенд изолирован.
+report_stats: false
+enable_metrics: false
+log_config: /data/log.config
+
+# Стенд: Synapse по умолчанию блокирует приватные диапазоны (127.0.0.0/8), а участники
+# стенда живут на loopback (127.0.0.1/127.0.0.2) — его _IPBlockingResolver превращал
+# резолв a.test в «no results for hostname lookup» и отдавал 401 на наши запросы.
+# В проде этот список не трогаем.
+federation_ip_range_blacklist: []
+
+# Стенд: interop гоняет логины/регистрации десятками — лимиты Synapse мешают прогону
+# (M_LIMIT_EXCEEDED, retry_after 50s). В проде лимиты остаются дефолтными.
+rc_login:
+  address:
+    per_second: 1000
+    burst_count: 1000
+  account:
+    per_second: 1000
+    burst_count: 1000
+  failed_attempts:
+    per_second: 1000
+    burst_count: 1000
+rc_registration:
+  per_second: 1000
+  burst_count: 1000
+
+# Стенд: интероп шлёт десятки федеративных запросов за прогон — лимиты federation
+# дают 429 M_LIMIT_EXCEEDED и ломают сценарии. В проде остаются дефолтные.
+rc_federation:
+  window_size: 1000
+  sleep_limit: 1000
+  sleep_delay: 1
+  reject_limit: 100000
+  concurrent: 1000
+
+# Стенд: rc_invites по умолчанию ~10 в burst — интероп-прогоны упираются в 429
+# (retry_after ~90 c) на /v2/invite. В проде остаются дефолтные значения.
+rc_invites:
+  per_room:
+    per_second: 1000
+    burst_count: 1000
+  per_user:
+    per_second: 1000
+    burst_count: 1000
+  per_issuer:
+    per_second: 1000
+    burst_count: 1000

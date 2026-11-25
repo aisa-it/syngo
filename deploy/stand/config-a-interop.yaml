@@ -1,0 +1,57 @@
+# Сервер A для интероп-прогона с живым Synapse.
+# Отличия от config-a.yaml: HTTPS-листенер на 8448 (сертификат из interop/certs.sh),
+# федерация по https с самоподписанным CA и allow_hosts на Synapse.
+env: dev
+server:
+  addr: ":8448"
+  tls_cert_file: /etc/syngo/certs/a.test.crt
+  tls_key_file: /etc/syngo/certs/a.test.key
+matrix:
+  server_name: a.test
+database:
+  dsn: ""
+  max_conns: 10
+  connect_timeout: 5s
+sync:
+  max_timeout_ms: 30000
+auth:
+  registration_open: true
+  min_password_length: 8
+log:
+  level: debug
+  format: text
+media:
+  storage_backend: local
+  directory: var/media
+federation:
+  enabled: true
+  signing_key_file: /etc/syngo/a.key
+  scheme: https
+  # Стенд Synapse ходит с самоподписанным сертификатом: без этого клиент отвергает TLS,
+  # падает на 8448 и уходит на 443 (connection refused).
+  insecure_skip_verify: true
+  # Подписи входящих событий проверяются ВСЕГДА: условие интеропа —
+  # проходить с включённой проверкой, поэтому опция здесь намеренно не задаётся.
+  # insecure_skip_signature_verify: true — запрещено в этом стенде, interop.sh падает.
+  # Стенд: Synapse просит omit_members, после partial state join его admin /state
+  # пуст и сверка интеропа не видит событий — отдаём полный member-state.
+  send_full_member_state: true
+  allow_hosts: ["b.test", "synapse.test"]
+  deny_hosts: []
+  # Стенд в docker-сети (172.30.0.0/24, адреса 127.0.0.x на хосте): частные
+  # адреса закрыты блок-листом по умолчанию, здесь их открываем.
+  ip_range_whitelist: ["172.16.0.0/12", "192.168.0.0/16", "10.0.0.0/8", "127.0.0.0/8"]
+  max_transaction_bytes: 1048576
+  connect_timeout: 3s
+  request_timeout: 15s
+  retry_min: 1s
+  retry_max: 10s
+  incoming_rate_per_second: 50
+  incoming_burst: 200
+rate_limit:
+  login_ip:      { enabled: false }
+  login_account: { enabled: false }
+  register_ip:   { enabled: false }
+  send:          { enabled: false }
+  media_upload:  { enabled: false }
+  sync:          { enabled: false }
